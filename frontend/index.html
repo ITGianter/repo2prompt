@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>repo2prompt - Command Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <!-- 顶部导航栏 -->
+  <header class="hero">
+    <div class="hero-content">
+      <h1 class="logo">repo2prompt<span class="cursor">_</span></h1>
+      <p class="tagline">Code to Prompt, Instantly</p>
+      <span class="version-badge">v0.1.0</span>
+    </div>
+  </header>
+
+  <!-- 主要内容区域 -->
+  <main class="app-layout">
+    <!-- 左侧配置面板 -->
+    <section class="config-panel" id="config-panel">
+      <!-- 组1: 路径配置 -->
+      <div class="config-card" id="group-path">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">📁</span>
+            <h3>项目路径</h3>
+          </div>
+          <button class="collapse-btn" aria-label="折叠/展开">
+            <span class="chevron">▼</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="path">项目根目录</label>
+            <input type="text" id="path" value="." placeholder="输入项目路径，如 . 或 /path/to/project">
+            <p class="help-text">绝对路径或相对路径，默认为当前目录</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 组2: 通用选项 -->
+      <div class="config-card" id="group-general">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">⚙️</span>
+            <h3>通用选项</h3>
+          </div>
+          <button class="collapse-btn" aria-label="折叠/展开">
+            <span class="chevron">▼</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="output">输出文件路径 (-o)</label>
+            <input type="text" id="output" placeholder="留空则输出到标准输出">
+            <p class="help-text">将结果写入文件而非打印到终端</p>
+          </div>
+
+          <div class="form-group">
+            <label>排除模式 (-e)</label>
+            <div class="exclude-input-group">
+              <input type="text" id="exclude-input" placeholder="输入 glob 模式，如 *.test.js">
+              <button type="button" id="add-exclude-btn" class="btn btn-secondary">添加</button>
+            </div>
+            <div class="exclude-tags" id="exclude-tags"></div>
+            <p class="help-text">支持多个 glob 模式，如 *.test.js, docs/</p>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-group">
+              <div class="toggle-item">
+                <label class="toggle-label">
+                  <input type="checkbox" id="copy">
+                  <span class="toggle-switch"></span>
+                  <span class="toggle-text">复制到剪贴板 (-c)</span>
+                </label>
+              </div>
+              <div class="toggle-item">
+                <label class="toggle-label">
+                  <input type="checkbox" id="no-summary">
+                  <span class="toggle-switch"></span>
+                  <span class="toggle-text">旧版模式（无 LLM 摘要）</span>
+                </label>
+              </div>
+              <div class="toggle-item">
+                <label class="toggle-label">
+                  <input type="checkbox" id="interactive">
+                  <span class="toggle-switch"></span>
+                  <span class="toggle-text">交互式 TUI 选择 (-i)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 组3: 日志控制 -->
+      <div class="config-card" id="group-logging">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">📊</span>
+            <h3>日志控制</h3>
+          </div>
+          <button class="collapse-btn" aria-label="折叠/展开">
+            <span class="chevron">▼</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>详细程度 (-v)</label>
+            <div class="radio-group">
+              <label class="radio-item">
+                <input type="radio" name="verbose" value="0" checked>
+                <span class="radio-custom"></span>
+                <span>默认 (WARNING)</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="verbose" value="1">
+                <span class="radio-custom"></span>
+                <span>-v (INFO)</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="verbose" value="2">
+                <span class="radio-custom"></span>
+                <span>-vv (DEBUG)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="log-level">日志级别 (--log-level)</label>
+            <select id="log-level">
+              <option value="">未设置</option>
+              <option value="DEBUG">DEBUG</option>
+              <option value="INFO">INFO</option>
+              <option value="WARNING">WARNING</option>
+              <option value="ERROR">ERROR</option>
+              <option value="CRITICAL">CRITICAL</option>
+            </select>
+            <p class="help-text help-warning">⚠️ 与详细程度选项互斥，设置一个会自动重置另一个</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 组4: LLM 摘要选项 -->
+      <div class="config-card" id="group-llm" data-depends-on="no-summary">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">🤖</span>
+            <h3>LLM 摘要选项</h3>
+          </div>
+          <button class="collapse-btn" aria-label="折叠/展开">
+            <span class="chevron">▼</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="disabled-banner" id="llm-disabled-banner">
+            ⚠️ 旧版模式下 LLM 选项已禁用
+          </div>
+
+          <div class="form-group">
+            <label for="model">模型名称 (--model)</label>
+            <input type="text" id="model" placeholder="gpt-4o-mini">
+            <p class="help-text">环境变量: R2P_MODEL</p>
+          </div>
+
+          <div class="form-group">
+            <label for="api-key">API 密钥 (--api-key)</label>
+            <div class="password-input-group">
+              <input type="password" id="api-key" placeholder="sk-...">
+              <button type="button" id="toggle-api-key" class="btn btn-icon" aria-label="显示/隐藏密钥">👁️</button>
+            </div>
+            <p class="help-text">环境变量: OPENAI_API_KEY | 摘要模式下必填</p>
+          </div>
+
+          <div class="form-group">
+            <label for="base-url">API 基础 URL (--base-url)</label>
+            <input type="text" id="base-url" placeholder="https://api.openai.com/v1">
+            <p class="help-text">环境变量: OPENAI_BASE_URL | 兼容 Azure、vLLM、Ollama 等</p>
+          </div>
+
+          <div class="form-group">
+            <label for="temperature">生成温度 (--temperature)</label>
+            <div class="slider-group">
+              <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.3">
+              <span class="slider-value" id="temperature-value">0.3</span>
+            </div>
+            <p class="help-text">环境变量: R2P_TEMPERATURE | 范围: 0-2</p>
+          </div>
+
+          <div class="form-group">
+            <label for="max-workers">并发数 (--max-workers)</label>
+            <input type="number" id="max-workers" min="1" max="50" value="5">
+            <p class="help-text">环境变量: R2P_MAX_WORKERS | 并行 LLM 调用数量</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 组5: 输出控制 -->
+      <div class="config-card" id="group-output">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">📝</span>
+            <h3>输出控制</h3>
+          </div>
+          <button class="collapse-btn" aria-label="折叠/展开">
+            <span class="chevron">▼</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="max-lines">每文件最大行数 (--max-lines)</label>
+            <input type="number" id="max-lines" min="1" placeholder="不限制">
+            <p class="help-text">保留头部 70% 和尾部 30%，中间部分省略</p>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-group">
+              <div class="toggle-item">
+                <label class="toggle-label">
+                  <input type="checkbox" id="outline-only">
+                  <span class="toggle-switch"></span>
+                  <span class="toggle-text">仅大纲模式 (--outline-only)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="outline-threshold">大纲阈值 (--outline-threshold)</label>
+            <div class="input-with-unit">
+              <input type="number" id="outline-threshold" min="1" placeholder="不限制">
+              <span class="unit">bytes</span>
+            </div>
+            <p class="help-text">仅对超过此大小的文件提取大纲</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 组6: Token 预估 -->
+      <div class="config-card" id="group-tokens">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">🔢</span>
+            <h3>Token 预估</h3>
+          </div>
+          <button class="collapse-btn" aria-label="折叠/展开">
+            <span class="chevron">▼</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <div class="toggle-group">
+              <div class="toggle-item">
+                <label class="toggle-label">
+                  <input type="checkbox" id="show-tokens">
+                  <span class="toggle-switch"></span>
+                  <span class="toggle-text">显示 Token 数量 (--show-tokens)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="token-model">Token 计数模型 (--token-model)</label>
+            <input type="text" id="token-model" placeholder="与 --model 相同或 gpt-4o">
+            <p class="help-text">影响 Token 计数和成本估算</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右侧输出面板 -->
+    <aside class="output-panel" id="output-panel">
+      <!-- 终端预览窗口 -->
+      <div class="terminal-preview">
+        <div class="terminal-header">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span class="terminal-title">命令预览</span>
+        </div>
+        <pre class="terminal-body"><code id="command-output">$ python -m repo2prompt.cli .</code></pre>
+        <div class="terminal-actions">
+          <button id="copy-btn" class="btn btn-secondary">
+            <span class="btn-icon-copy">📋</span>
+            复制命令
+          </button>
+        </div>
+      </div>
+
+      <!-- 运行控制栏 -->
+      <div class="run-controls">
+        <button id="run-btn" class="btn btn-run">
+          <span class="run-icon">▶</span>
+          运行
+        </button>
+        <button id="stop-btn" class="btn btn-stop" style="display: none;">
+          <span class="run-icon">■</span>
+          停止
+        </button>
+        <div class="run-status" id="run-status">
+          <span class="status-dot"></span>
+          <span class="status-text">就绪</span>
+        </div>
+      </div>
+
+      <!-- 结果终端 -->
+      <div class="result-terminal" id="result-terminal">
+        <div class="terminal-header">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span class="terminal-title">输出结果</span>
+        </div>
+        <div class="progress-container" id="progress-container" style="display: none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <span class="progress-text" id="progress-text">0/0</span>
+        </div>
+        <div class="terminal-body result-body" id="result-body">
+          <div class="output-content" id="output-content">
+            <span class="result-placeholder">点击"运行"按钮执行命令...</span>
+          </div>
+        </div>
+        <div class="terminal-actions">
+          <button id="clear-result-btn" class="btn btn-secondary">
+            <span class="btn-icon">🗑️</span>
+            清除
+          </button>
+          <button id="copy-result-btn" class="btn btn-secondary" disabled>
+            <span class="btn-icon-copy">📋</span>
+            复制结果
+          </button>
+          <button id="download-result-btn" class="btn btn-secondary" disabled>
+            <span class="btn-icon-download">💾</span>
+            下载文件
+          </button>
+        </div>
+      </div>
+
+      <!-- 验证消息区域 -->
+      <div class="validation-area" id="validation-area"></div>
+
+      <!-- 预设管理区域 -->
+      <div class="preset-section">
+        <h3>预设配置</h3>
+
+        <div class="preset-builtin">
+          <span class="preset-label">内置预设：</span>
+          <button class="preset-chip" data-preset="quick-scan">Quick Scan</button>
+          <button class="preset-chip" data-preset="full-summary">Full Summary</button>
+          <button class="preset-chip" data-preset="outline-only">Outline Only</button>
+          <button class="preset-chip" data-preset="debug-mode">Debug Mode</button>
+        </div>
+
+        <div class="preset-custom">
+          <div class="preset-actions">
+            <select id="preset-select">
+              <option value="">选择自定义预设...</option>
+            </select>
+            <button id="load-preset-btn" class="btn btn-secondary">加载</button>
+            <button id="delete-preset-btn" class="btn btn-danger">删除</button>
+          </div>
+
+          <div class="preset-save">
+            <input type="text" id="preset-name" placeholder="输入预设名称">
+            <button id="save-preset-btn" class="btn btn-secondary">保存当前配置</button>
+          </div>
+        </div>
+
+        <div class="preset-export">
+          <button id="export-config-btn" class="btn btn-secondary">导出 JSON</button>
+          <button id="import-config-btn" class="btn btn-secondary">导入 JSON</button>
+          <input type="file" id="import-file" accept=".json" style="display: none;">
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <p>Built for <a href="https://github.com/user/repo2prompt" target="_blank">repo2prompt</a></p>
+  </footer>
+
+  <!-- Toast 通知容器 -->
+  <div id="toast-container"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
